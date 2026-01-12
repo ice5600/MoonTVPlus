@@ -2677,8 +2677,10 @@ function PlayPageClient() {
       newUrl.searchParams.set('year', detailData.year);
       // 保持原有的 title，不更新
       newUrl.searchParams.delete('prefer');
-      // 删除fileName参数，避免换集后刷新跳回到最初点击的那一集
-      newUrl.searchParams.delete('fileName');
+      // 只有当元数据不是从文件获取时，才删除fileName参数
+      if (detailData.metadataSource !== 'file') {
+        newUrl.searchParams.delete('fileName');
+      }
       window.history.replaceState({}, '', newUrl.toString());
 
       setLoadingStage('ready');

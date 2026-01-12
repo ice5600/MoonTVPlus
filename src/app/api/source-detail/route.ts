@@ -207,6 +207,8 @@ export async function GET(request: NextRequest) {
         proxyMode: false,
         // 返回用户点击的文件索引（如果找到的话）
         initialEpisodeIndex: clickedFileIndex >= 0 ? clickedFileIndex : undefined,
+        // 返回元数据来源
+        metadataSource: metadata.source,
       };
 
       return NextResponse.json(result);

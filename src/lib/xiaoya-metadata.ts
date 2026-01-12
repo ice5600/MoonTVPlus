@@ -14,7 +14,7 @@ export interface XiaoyaMetadata {
   poster?: string;
   background?: string;
   mediaType: 'movie' | 'tv';
-  source: 'folder' | 'nfo' | 'tmdb';
+  source: 'folder' | 'nfo' | 'tmdb' | 'file';
 }
 
 /**
@@ -48,18 +48,32 @@ async function findNFO(
   videoPath: string
 ): Promise<NFOMetadata | null> {
   const pathParts = videoPath.split('/').filter(Boolean);
-  const parentDir = pathParts.slice(0, -1).join('/');
 
-  const isInSeasonDir = /(season\s*\d+|s\d+)/i.test(parentDir);
+  // 判断是否为文件路径
+  const videoExtensions = ['.mp4', '.mkv', '.avi', '.m3u8', '.flv', '.ts', '.mov', '.wmv', '.webm'];
+  const isFilePath = videoExtensions.some(ext => videoPath.toLowerCase().endsWith(ext));
+
+  let isInSeasonDir = false;
+
+  if (isFilePath) {
+    // 文件路径：判断父目录是否为季度目录
+    const parentDir = pathParts[pathParts.length - 2];
+    isInSeasonDir = /(season\s*\d+|s\d+)/i.test(parentDir);
+  } else {
+    // 目录路径：判断当前目录是否为季度目录
+    const currentDir = pathParts[pathParts.length - 1];
+    isInSeasonDir = /(season\s*\d+|s\d+)/i.test(currentDir);
+  }
 
   const nfoSearchPaths: string[] = [];
 
   if (isInSeasonDir) {
     // 电视剧：查父级的 tvshow.nfo
-    const grandParentDir = pathParts.slice(0, -2).join('/');
+    const grandParentDir = pathParts.slice(0, isFilePath ? -2 : -1).join('/');
     nfoSearchPaths.push(`/${grandParentDir}/tvshow.nfo`);
   } else {
     // 电影：查同级的 movie.nfo
+    const parentDir = pathParts.slice(0, isFilePath ? -1 : pathParts.length).join('/');
     nfoSearchPaths.push(`/${parentDir}/movie.nfo`);
   }
 
@@ -123,8 +137,18 @@ export async function getXiaoyaMetadata(
       metadataDir = '';
       folderName = pathParts[0];
     } else {
-      metadataDir = pathParts.slice(0, -1).join('/');
-      folderName = pathParts[pathParts.length - 1];
+      // 判断当前目录是否为季度目录
+      const currentDirName = pathParts[pathParts.length - 1];
+      const isSeasonDir = /(season\s*\d+|s\d+)/i.test(currentDirName);
+
+      if (isSeasonDir && pathParts.length >= 2) {
+        // 季度目录：使用父级目录名
+        metadataDir = pathParts.slice(0, -2).join('/');
+        folderName = pathParts[pathParts.length - 2];
+      } else {
+        metadataDir = pathParts.slice(0, -1).join('/');
+        folderName = pathParts[pathParts.length - 1];
+      }
     }
   }
 
@@ -153,7 +177,7 @@ export async function getXiaoyaMetadata(
       poster: posterUrl,
       background: backgroundUrl,
       mediaType: isInSeasonDir ? 'tv' : 'movie',
-      source: nfoData ? 'nfo' : 'folder',
+      source: nfoData ? 'nfo' : (isFilePath ? 'file' : 'folder'),
     };
   }
 
@@ -206,7 +230,7 @@ export async function getXiaoyaMetadata(
             ? getTMDBImageUrl(tmdbResult.result.poster_path)
             : undefined,
           mediaType: tmdbResult.result.media_type,
-          source: 'tmdb',
+          source: isFilePath ? 'file' : 'tmdb',
         };
       }
     }
